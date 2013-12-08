@@ -97,43 +97,39 @@ def svd_als(data, preferences=1.0, confidences=1.0, rank=10, penalty=0.1, p_defa
     for iter in xrange(iters):
 
         # Update X
-        V0 = np.dot(Y.transpose(), Y) + penalty*np.eye(rank)
-        b0 = p_default * c_default * Y.transpose().sum(axis=1)
+        A0 = c_default * np.dot(Y.T, Y) + penalty * np.eye(rank)
+        b0 = p_default * c_default * Y.T.sum(axis=1)
         for user in xrange(n_users):
             rel_items = user_items[user]
+            if rel_items is None:
+                continue
             rel_preferences = user_preferences[user]
             rel_confidences = user_confidences[user]
-            if rel_preferences is None:
-                continue
             rel_count = len(rel_items)
 
-            V1u = np.dot(Y[rel_items,:].transpose(),
-                         (rel_confidences - c_default).reshape((rel_count, 1))*Y[rel_items,:])
-            Vu = V0 + V1u
-            b1u = np.dot(Y[rel_items,:].transpose(), rel_confidences * (rel_preferences - p_default) +
-                p_default * (rel_confidences - c_default))
-            b = b0 + b1u
-            x = np.linalg.solve(Vu, b)
+            A = A0 + np.dot(Y[rel_items,:].T, (rel_confidences - c_default).reshape((rel_count, 1)) * Y[rel_items,:])
+            b = b0 + np.dot(Y[rel_items,:].T, (rel_confidences - c_default) * rel_preferences +
+                                               c_default * (rel_preferences - p_default))
+
+            x = np.linalg.solve(A, b)
             X[user,:] = x.transpose()
 
         # Update Y
-        V0 = np.dot(X.transpose(), X) + penalty*np.eye(rank)
-        b0 = p_default * c_default * X.transpose().sum(axis=1)
+        A0 = c_default * np.dot(X.T, X) + penalty * np.eye(rank)
+        b0 = p_default * c_default * X.T.sum(axis=1)
         for item in xrange(n_items):
             rel_users = item_users[item]
+            if rel_users is None:
+                continue
             rel_preferences = item_preferences[item]
             rel_confidences = item_confidences[item]
-            if rel_preferences is None:
-                continue
             rel_count = len(rel_users)
 
-            V1i = np.dot(X[rel_users,:].transpose(),
-                         (rel_confidences - c_default).reshape((rel_count, 1))*X[rel_users,:])
-            Vi = V0 + V1i
-            b1u = np.dot(X[rel_users,:].transpose(), rel_confidences * (rel_preferences - p_default) +
-                p_default * (rel_confidences - c_default))
-            b = b0 + b1u
-            y = np.linalg.solve(Vi, b)
+            A = A0 + np.dot(X[rel_users,:].T, (rel_confidences - c_default).reshape((rel_count, 1)) * X[rel_users,:])
+            b = b0 + np.dot(X[rel_users,:].T, (rel_confidences - c_default) * rel_preferences +
+                                               c_default * (rel_preferences - p_default))
+
+            y = np.linalg.solve(A, b)
             Y[item,:] = y.transpose()
 
         if verbose:
@@ -142,7 +138,7 @@ def svd_als(data, preferences=1.0, confidences=1.0, rank=10, penalty=0.1, p_defa
             rmseR = np.sqrt(np.square(preferences - predictions).mean())
 
             # Compute objective value
-            J = penalty*(np.square(X).sum() + np.square(Y).sum())
+            J = penalty * (np.square(X).sum() + np.square(Y).sum())
             for user in xrange(n_users):
                 rel_items = user_items[user]
                 rel_preferences = user_preferences[user]
@@ -159,7 +155,7 @@ def svd_als(data, preferences=1.0, confidences=1.0, rank=10, penalty=0.1, p_defa
                       c_default * np.square(other_predictions).sum())
 
             # Information
-            print 'Iter %d: J=%.2f RMSE(R)=%.8f' % (iter, J, rmseR)
+            print 'Iter %d: J=%.2f RMSE(R)=%.8f' % (iter + 1, J, rmseR)
 
     return X, Y
 
